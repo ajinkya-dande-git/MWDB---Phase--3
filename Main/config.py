@@ -2,7 +2,7 @@
 FULL_IMAGESET_FOLDER = "D:\ASU Projects\CSE 551 - MWDB\MWDB--11K-Images\images"
 
 # Image DB Location.
-IMAGE_FOLDER = "D:\ASU Projects\CSE 551 - MWDB\MWDB--11K-Images\images"
+IMAGE_FOLDER = "H:\Asu\mwdb\project-phase-2\MWDB---Phase--3\Images\Labelled\Set1"
 
 # Location where feature descriptors/Latent semantics will be stored.
 DATABASE_FOLDER = "D:\ASU Projects\CSE 551 - MWDB\MWDB--11K-Images\Database"
