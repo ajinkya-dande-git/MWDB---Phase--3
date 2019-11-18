@@ -8,4 +8,4 @@ def progress(count, total):
 
 def find_distance_2_vectors(vector1, vector2):
     # distance.euclidean(vector1, vector2)
-    return np.linalg.norm(vector1 - vector2, axis=1)
+    return np.linalg.norm(vector1 - vector2)
