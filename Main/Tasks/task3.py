@@ -56,7 +56,7 @@ def startTask3():
         total = sum(distances[ind])
         for distance_index in ind:
             # This is adding only k nearest neighbours into the matrix and doing ratio to get probablistic matrix
-            adjacency_matrix[i][distance_index] = distances[distance_index] / total
+            adjacency_matrix[i][distance_index] = 1 - distances[distance_index] / total
 
     rowDict = {}
     i = 0
@@ -68,7 +68,23 @@ def startTask3():
     df.rename(index=rowDict, inplace=True)
 
     df.to_csv(join(config.DATABASE_FOLDER, "adjacency_matrix.csv"))
+    I = np.zeros(df.shape)
+    print("Enter the three imageIDs to be used as seed")
+    imageID_1 = input()
+    imageID_2 = input()
+    imageID_3 = input()
 
-
+    seed = pd.Series(0, index=df.index)
+    seed.loc[imageID_1] = 0.33
+    print(seed[imageID_1])
+    seed.loc[imageID_2] = 0.33
+    seed.loc[imageID_3] = 0.34
+    print(seed)
+    page_rank = np.matmul(np.linalg.inv(I - .25 * df), 0.75 *seed)
+    print(page_rank.shape)
+    steady_state = pd.Series(page_rank, index=df.index)
+    steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"))
 if __name__ == '__main__':
     startTask3()
+
+
