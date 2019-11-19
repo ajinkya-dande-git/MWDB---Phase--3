@@ -17,16 +17,16 @@ class HOG:
     @classmethod
     def HOGForSingleImage(self, filename):
         image = io.imread(filename)
-        image = rescale(image, 1.0 / 10, anti_aliasing=True)
-
-        fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8),
+        image_rescaled = rescale(image, 0.1, anti_aliasing=False)
+        # image = rescale(file, scale=0.1, anti_aliasing=True)
+        fd, hog_image = hog(image_rescaled, orientations=9, pixels_per_cell=(8, 8),
                             cells_per_block=(2, 2), visualize=True, multichannel=True, transform_sqrt=True)
         return fd
 
     @classmethod
     def HOGFeatureDescriptor(self):
         # Iterating on all the images in the selected folder to calculate HOG FD for each of the images
-        storeHogFD = []
+        storeHogFD = {}
         hog = HOG()
         files = os.listdir(str(config.IMAGE_FOLDER))  # dir is your directory path
         number_files = len(files)
@@ -37,7 +37,7 @@ class HOG:
                 i = i + 1
                 hognp = hog.HOGForSingleImage(join(str(config.IMAGE_FOLDER),filename))
                 progress(i, number_files)
-                storeHogFD.append(hognp.tolist())
+                storeHogFD[filename] = (hognp.tolist())
         print()
         return storeHogFD
 
