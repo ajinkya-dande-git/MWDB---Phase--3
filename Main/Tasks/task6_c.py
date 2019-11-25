@@ -4,31 +4,30 @@ from os.path import join
 import numpy as np
 from Main.HOG_feature_descriptor import HOG
 import pandas as pd
-import pickle
 import Main.config as config
 from Main.PCA_Reducer import PCA_Reducer
 from Main.helper import find_distance_2_vectors
-from numpy import linalg as LA
-import matplotlib.pyplot as plt
-import networkx as nx
+
 
 
 def startTask3():
     print("start task3")
     k = input("Please enter the k value for outgoing edges ")
-    K = input("Please enter the K value for visualizing dominant images ")
+    # K = input("Please enter the K value for visualizing dominant images ")
     k = int(k)
+    classify_folder = input("Enter the folder to classify images ")
     fileHOGFullExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG_FULL.json"))
 
-    fileExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG.json"))
+    fileExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG_classify.json"))
     if not fileExists:
         hog = HOG()
         featureVector = hog.HOGFeatureDescriptor()
-
-        with open(join(config.DATABASE_FOLDER, "HOG.json"), 'w', encoding='utf-8') as f:
+        featureVector_classify = hog.HOGFeatureDescriptorForFolder(join(config.CLASSIFICATION_FOLDER, classify_folder))
+        featureVector.update(featureVector_classify)
+        with open(join(config.DATABASE_FOLDER, "HOG_classify.json"), 'w+', encoding='utf-8') as f:
             json.dump(featureVector, f, ensure_ascii=True, indent=4)
 
-    with open(join(config.DATABASE_FOLDER, "HOG.json"), "r") as f:
+    with open(join(config.DATABASE_FOLDER, "HOG_classify.json"), "r") as f:
         data = json.load(f)
 
     reducerObject = list(data.values())
@@ -36,9 +35,17 @@ def startTask3():
     pca = PCA_Reducer(reducerObject)
     latentFeatureDict = {}
     data = pca.reduceDimension(pca.featureDescriptor)
+    print(data.shape)
     i = 0
     imageNames = []
     for file in os.listdir(str(config.IMAGE_FOLDER)):
+        filename = os.fsdecode(file)
+        latent = data.iloc[i][:]
+        imageNames.append(filename)
+        latentFeatureDict[filename] = latent
+        i = i + 1
+
+    for file in os.listdir(join(config.CLASSIFICATION_FOLDER, classify_folder)):
         filename = os.fsdecode(file)
         latent = data.iloc[i][:]
         imageNames.append(filename)
@@ -49,9 +56,7 @@ def startTask3():
     for i in range(len(latentFeatureDict)):
         distances = []
         for j in range(len(latentFeatureDict)):
-            # print(len(latentFeatureDict[imageNames[i]]), len(latentFeatureDict[imageNames[j]]))
-            distances.append(find_distance_2_vectors(latentFeatureDict[imageNames[i]],
-                                                     latentFeatureDict[imageNames[j]]))
+            distances.append(find_distance_2_vectors(latentFeatureDict[imageNames[i]], latentFeatureDict[imageNames[j]]))
 
         distances = np.asarray(distances)
         ind = np.argpartition(distances, k)[:k]
@@ -77,16 +82,16 @@ def startTask3():
 
     I = np.identity(df.shape[1])
 
-    print("Enter the three imageIDs to be used as seed")
-    imageID_1 = input()
-    imageID_2 = input()
-    imageID_3 = input()
-
+    print("Enter the file where the meta-data of the images is present")
+    fileName = input()
+    metaData = pd.read_csv(join(config.METADATA_FOLDER, fileName))
+    metaData.set_index('imageName')
+    count = metaData.loc[metaData['aspectOfHand'].str.contains("dorsal")].shape[0]
+    print(count)
     seed = pd.Series(0, index=df.index)
-    seed.loc[imageID_1] = 0.33
-    seed.loc[imageID_2] = 0.33
-    seed.loc[imageID_3] = 0.34
-    page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+    seed[metaData.loc[metaData['aspectOfHand'].str.contains("dorsal")].imageName] = 1 / count
+
+    page_rank = np.matmul(np.linalg.inv(I - .50*df), 0.50*seed)
     steady_state = pd.Series(page_rank, index=df.index)
     steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"))
 
