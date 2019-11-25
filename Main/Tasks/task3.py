@@ -8,7 +8,6 @@ import pickle
 import Main.config as config
 from Main.PCA_Reducer import PCA_Reducer
 from Main.helper import find_distance_2_vectors
-from numpy import linalg as LA
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -74,9 +73,8 @@ def startTask3():
     df.rename(index=rowDict, inplace=True)
 
     df.to_csv(join(config.DATABASE_FOLDER, "adjacency_matrix.csv"))
-
     I = np.identity(df.shape[1])
-
+    print(I)
     print("Enter the three imageIDs to be used as seed")
     imageID_1 = input()
     imageID_2 = input()
@@ -84,9 +82,12 @@ def startTask3():
 
     seed = pd.Series(0, index=df.index)
     seed.loc[imageID_1] = 0.33
+    print(seed[imageID_1])
     seed.loc[imageID_2] = 0.33
     seed.loc[imageID_3] = 0.34
-    page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+    print(seed)
+    page_rank = np.matmul(np.linalg.inv(I - .25 * df), 0.75 * seed)
+    print(page_rank.shape)
     steady_state = pd.Series(page_rank, index=df.index)
     steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"))
 
