@@ -10,6 +10,7 @@ __pycache__/
 Main/config.py
 images/
 Database/
+Classify/
 .idea/
 .Python
 build/
