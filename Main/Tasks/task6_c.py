@@ -6,6 +6,7 @@ from Main.HOG_feature_descriptor import HOG
 import pandas as pd
 import Main.config as config
 from Main.PCA_Reducer import PCA_Reducer
+import matplotlib.pyplot as plt
 from Main.helper import find_distance_2_vectors
 
 
@@ -93,8 +94,10 @@ def startTask3():
 
     page_rank = np.matmul(np.linalg.inv(I - .50*df), 0.50*seed)
     steady_state = pd.Series(page_rank, index=df.index)
+
+    steady_state = steady_state.sort_values(ascending=True)
     steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"))
-
-
+    steady_state.plot()
+    plt.show()
 if __name__ == '__main__':
     startTask3()

@@ -16,8 +16,10 @@ class HOG:
 
     @classmethod
     def HOGForSingleImage(self, filename):
-        image = io.imread(filename)
-        image_rescaled = rescale(image, 0.1, anti_aliasing=False)
+        image = io.imread(filename);
+        print(image.shape);
+        image_rescaled = rescale(image, 0.1, anti_aliasing=False);
+        print(image_rescaled.shape);
         # image = rescale(file, scale=0.1, anti_aliasing=True)
         fd, hog_image = hog(image_rescaled, orientations=9, pixels_per_cell=(8, 8),
                             cells_per_block=(2, 2), visualize=True, multichannel=True, transform_sqrt=True)
