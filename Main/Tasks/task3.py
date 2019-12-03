@@ -1,16 +1,12 @@
 import json
 import os
 from os.path import join
+
 import numpy as np
-from Main.HOG_feature_descriptor import HOG
 import pandas as pd
-import pickle
 import Main.config as config
 from Main.PCA_Reducer import PCA_Reducer
 from Main.helper import find_distance_2_vectors
-from numpy import linalg as LA
-import matplotlib.pyplot as plt
-import networkx as nx
 
 
 def startTask3():
@@ -18,18 +14,36 @@ def startTask3():
     k = input("Please enter the k value for outgoing edges ")
     K = input("Please enter the K value for visualizing dominant images ")
     k = int(k)
-    fileHOGFullExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG_FULL.json"))
+    K = int(K)
+    folder = input("Please Select the folder to apply Page Rank \n 1. Labelled Set 1 \n 2. Labelled Set 2 \n")
+    if folder == "1":
+        folderPath = config.IMAGE_FOLDER_SET_1
+    else:
+        folderPath = config.IMAGE_FOLDER_SET_2
 
-    fileExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG.json"))
-    if not fileExists:
-        hog = HOG()
-        featureVector = hog.HOGFeatureDescriptor()
+    data = {}
 
-        with open(join(config.DATABASE_FOLDER, "HOG.json"), 'w', encoding='utf-8') as f:
-            json.dump(featureVector, f, ensure_ascii=True, indent=4)
+    for file in os.listdir(str(folderPath)):
+        filename = os.fsdecode(file)
+        with open(join(config.FEATURES_FOLDER, filename+".json"), "r") as f:
+            eachData = json.load(f)
+            data.update(eachData)
+            # mergingFeatureJson.append(data)
 
-    with open(join(config.DATABASE_FOLDER, "HOG.json"), "r") as f:
-        data = json.load(f)
+    # print(mergingFeatureJson)
+
+    # fileHOGFullExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG.json"))
+    #
+    # fileExists = os.path.exists(join(config.DATABASE_FOLDER, "HOG_set_2.json"))
+    # if not fileExists:
+    #     hog = HOG()
+    #     featureVector = hog.HOGFeatureDescriptor()
+    #
+    #     with open(join(config.DATABASE_FOLDER, "HOG_set_2.json"), 'w', encoding='utf-8') as f:
+    #         json.dump(featureVector, f, ensure_ascii=True, indent=4)
+    #
+    # with open(join(config.DATABASE_FOLDER, "HOG_set_2.json"), "r") as f:
+    #     data = json.load(f)
 
     reducerObject = list(data.values())
 
@@ -38,7 +52,7 @@ def startTask3():
     data = pca.reduceDimension(pca.featureDescriptor)
     i = 0
     imageNames = []
-    for file in os.listdir(str(config.IMAGE_FOLDER)):
+    for file in os.listdir(str(folderPath)):
         filename = os.fsdecode(file)
         latent = data.iloc[i][:]
         imageNames.append(filename)
@@ -58,11 +72,11 @@ def startTask3():
         total = 0
         for distance_index in ind:
             if distances[distance_index] != 0:
-                total += 1/distances[distance_index]
+                total += 1 / distances[distance_index]
         for distance_index in ind:
             # This is adding only k nearest neighbours into the matrix and doing ratio to get probablistic matrix
             if distances[distance_index] != 0:
-                adjacency_matrix[distance_index][i] = 1/distances[distance_index] / total
+                adjacency_matrix[distance_index][i] = 1 / distances[distance_index] / total
 
     rowDict = {}
     i = 0
@@ -87,8 +101,54 @@ def startTask3():
     seed.loc[imageID_2] = 0.33
     seed.loc[imageID_3] = 0.34
     page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+    # ind = np.argpartition(page_rank, -K)[-K:]
+    # print(page_rank[ind])
     steady_state = pd.Series(page_rank, index=df.index)
+    # df.rename(columns={0:"imageName",1:"values"}, inplace=True)
+    # steady_state.nlargest(K, ["values"],keep="all")
     steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"))
+
+    col_Names = ["imageNames", "values"]
+    my_CSV_File = pd.read_csv(join(config.DATABASE_FOLDER, "steady_state_matrix.csv"), names=col_Names)
+    kDominant = my_CSV_File.nlargest(K, ["values"], keep="all")
+
+    # print(my_CSV_File.nlargest(K, ["values"], keep="all"))
+    s = "<style>" \
+        "img { width:160px;height:120px" \
+        "</style>"
+    s = s + "<h2> 3 Seed Images</h2>"
+    s = s + "<img src='"
+    s = s + join(folderPath, imageID_1)
+    s = s + "'>"
+    s = s + "<img src='"
+    s = s + join(folderPath, imageID_2)
+    s = s + "'>"
+    s = s + "<img src='"
+    s = s + join(folderPath, imageID_2)
+    s = s + "'>"
+    s = s + "</br></br>"
+    s = s + "<h2>" + str(K) + " Dominant Images</h2>"
+    for index, row in kDominant.iterrows():
+        news = ""
+        news = news + "<img src='"
+        news = news + join(folderPath, row["imageNames"])
+        news = news + "'>"
+        s = s + news
+
+    f = open(join(config.DATABASE_FOLDER, "task3.html"), "w")
+    f.write(s)
+    f.close()
+
+    import webbrowser
+
+    url = join(config.DATABASE_FOLDER, "task3.html")
+    # MacOS
+    # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
+    # Windows
+    chrome_path = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+    # Linux
+    # chrome_path = '/usr/bin/google-chrome %s'
+    webbrowser.get(chrome_path).open(url)
 
 
 if __name__ == '__main__':
