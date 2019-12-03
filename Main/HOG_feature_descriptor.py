@@ -1,3 +1,4 @@
+import json
 import os
 from os.path import join
 
@@ -16,10 +17,8 @@ class HOG:
 
     @classmethod
     def HOGForSingleImage(self, filename):
-        image = io.imread(filename);
-        print(image.shape);
-        image_rescaled = rescale(image, 0.1, anti_aliasing=False);
-        print(image_rescaled.shape);
+        image = io.imread(filename)
+        image_rescaled = rescale(image, 0.1, anti_aliasing=False)
         # image = rescale(file, scale=0.1, anti_aliasing=True)
         fd, hog_image = hog(image_rescaled, orientations=9, pixels_per_cell=(8, 8),
                             cells_per_block=(2, 2), visualize=True, multichannel=True, transform_sqrt=True)
@@ -29,19 +28,20 @@ class HOG:
     def HOGFeatureDescriptor(self):
         # Iterating on all the images in the selected folder to calculate HOG FD for each of the images
         storeHogFD = {}
-        hog = HOG()
-        files = os.listdir(str(config.IMAGE_FOLDER))  # dir is your directory path
+        files = os.listdir(str(config.FULL_IMAGESET_FOLDER))  # dir is your directory path
         number_files = len(files)
         i = 0
-        for file in os.listdir(str(config.IMAGE_FOLDER)):
+        for file in os.listdir(str(config.FULL_IMAGESET_FOLDER)):
             filename = os.fsdecode(file)
             if filename.endswith(".jpg"):
+                storeHogFD = {}
                 i = i + 1
-                hognp = hog.HOGForSingleImage(join(str(config.IMAGE_FOLDER),filename))
+                hognp = self.HOGForSingleImage(join(str(config.FULL_IMAGESET_FOLDER), filename))
                 progress(i, number_files)
                 storeHogFD[filename] = (hognp.tolist())
+                with open(join(config.FEATURES_FOLDER, filename + ".json"), 'w', encoding='utf-8') as f:
+                    json.dump(storeHogFD, f, ensure_ascii=True)
         print()
-        return storeHogFD
 
     @classmethod
     def HOGFeatureDescriptorForImageSubset(self, imageSet):
@@ -52,7 +52,7 @@ class HOG:
         i = 0
         for filename in imageSet:
             i = i + 1
-            hognp = hog.HOGForSingleImage(join(str(config.IMAGE_FOLDER),filename))
+            hognp = hog.HOGForSingleImage(join(str(config.IMAGE_FOLDER), filename))
             progress(i, number_files)
             storeHogFD.append(hognp.tolist())
         print(len(storeHogFD))
@@ -69,7 +69,7 @@ class HOG:
             filename = os.fsdecode(file)
             if filename.endswith(".jpg"):
                 i = i + 1
-                hognp = hog.HOGForSingleImage(join(str(folderName),filename))
+                hognp = hog.HOGForSingleImage(join(str(folderName), filename))
                 progress(i, number_files)
                 storeHogFD[filename] = (hognp.tolist())
         print()
