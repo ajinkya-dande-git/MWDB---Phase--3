@@ -7,6 +7,9 @@ IMAGE_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\phase
 # Location where feature descriptors/Latent semantics will be stored.
 DATABASE_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\Phase_3"
 
+# Location where feature descriptors of individual images are stored.
+FEATURE_DESCRIPTOR_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\Features"
+
 # Location where images for classification is present
 CLASSIFICATION_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\Classify"
 
@@ -14,3 +17,6 @@ VISUALIZATION_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databas
 
 # Path where metadata csv file is present.
 METADATA_FOLDER = "E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\Metadata\HandInfo.csv"
+
+# HOG Feature Descriptor location.
+FEAT_DESC_FOLDER = 'E:\Personal Stuff\Projects\ASU\MWDB\Working_Area\Databases\Features'
