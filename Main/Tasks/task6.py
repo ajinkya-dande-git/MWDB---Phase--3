@@ -1,5 +1,5 @@
 import json
-import os
+import math
 from os.path import join
 
 import pandas as pd
@@ -27,19 +27,24 @@ def startTask6():
 
     relavantImages = []
     irrelavantImages = []
-
+    iteration = 0
     # Below values are used for PPR, not to calculate everytime iteatively
     rowDict = {}
     calculated = False
 
     ch = "n"
     while ch == "n" or ch == "N":
+        iteration = iteration + 1
         numberOfRelavant = int(input("Number of relevant images "))
         numberOfIrRelavant = int(input("Number of irrelevant images "))
         for i in range(numberOfRelavant):
             relavantImages.append(input("Please " + str(i + 1) + " relevant image "))
         for i in range(numberOfIrRelavant):
             irrelavantImages.append(input("Please " + str(i + 1) + " irrelevant image "))
+
+        relavantImages = set(relavantImages)
+        irrelavantImages = set(irrelavantImages)
+
         if feedbackSystem == 1:
             print("SVM Based Feedback system")
         elif feedbackSystem == 2:
@@ -74,7 +79,7 @@ def startTask6():
                         if distances[distance_index] != 0:
                             adjacency_matrix[distance_index][i] = 1 / distances[distance_index] / total
                     calculated = True
-            
+
             seed = pd.Series(0, index=imagesNames)
             length = len(relavantImages)
             for img in relavantImages:
@@ -83,62 +88,105 @@ def startTask6():
             df = pd.DataFrame(adjacency_matrix, columns=imagesNames)
             df.rename(index=rowDict, inplace=True)
 
-            I = np.identity(df.shape[1])
-            page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
-            # ind = np.argpartition(page_rank, -K)[-K:]
-            # print(page_rank[ind])
-            steady_state = pd.Series(page_rank, index=df.index)
-            # df.rename(columns={0:"imageName",1:"values"}, inplace=True)
-            # steady_state.nlargest(K, ["values"],keep="all")
-            steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix_6_c.csv"))
-            steady_state = steady_state.sort_values(ascending=True)
             df.to_csv(join(config.DATABASE_FOLDER, "adjacency_matrix_task6_c.csv"))
 
-            # s = "<style>" \
-            #     "img { width:160px;height:120px" \
-            #     "</style>"
-            # s = s + "<h2> 3 Relevant Images</h2>"
-            # for i in relavantImages:
-            #     s = s + "<img src='"
-            #     s = s + join(config.FULL_IMAGESET_FOLDER, i)
-            #     s = s + "'>"
-            #     s = s + "</br></br>"
-            # s = s + "<h2> 3 Irrelevant Images</h2>"
-            # for i in irrelavantImages:
-            #     s = s + "<img src='"
-            #     s = s + join(config.FULL_IMAGESET_FOLDER, i)
-            #     s = s + "'>"
-            #     s = s + "</br></br>"
-            #
-            # for row in range(steady_state.shape[0]):
-            #     news = ""
-            #     news = news + "<img src='"
-            #     news = news + join(config.FULL_IMAGESET_FOLDER, str(row))
-            #     news = news + "'>"
-            #     s = s + news
-            #
-            # f = open(join(config.DATABASE_FOLDER, "task3.html"), "w")
-            # f.write(s)
-            # f.close()
-            #
-            # import webbrowser
-            #
-            # url = join(config.DATABASE_FOLDER, "task3.html")
-            # # MacOS
-            # # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
-            # # Windows
-            # chrome_path = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
-            # # Linux
-            # # chrome_path = '/usr/bin/google-chrome %s'
-            # webbrowser.get(chrome_path).open(url)
+            I = np.identity(df.shape[1])
+            page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+
+            steady_state = pd.Series(page_rank, index=df.index)
+            steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix_6_c_"+str(iteration)+".csv"))
+
+            steady_state = steady_state.sort_values(ascending=False)
+            finalResult = steady_state.to_dict()
+            finalResult = list(finalResult.keys())
+            plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
 
         elif feedbackSystem == 4:
-            pass
+            images_df = pd.read_json(join(config.DATABASE_FOLDER, filename + ".json"), "r")
+            threshold = 0.02
+            nQuery = []
+            for q in range(images_df.shape[0]):
+                nq = 0
+                rq = 0
+                irq = 0
+                for column in images_df:
+                    if images_df[column][q] >= threshold:
+                        nq += 1
+                        if column in relavantImages:
+                            rq += 1
+                        if column in irrelavantImages:
+                            irq += 1
+                pq = (rq + nq / images_df.shape[1]) / (len(relavantImages) + 1)
+                uq = (irq + nq / images_df.shape[1]) / (len(irrelavantImages) + 1)
+                if pq * (1 - uq) / (uq * (1 - pq) + 1) <= 0:
+                    nQuery.append(0)
+                else:
+                    q = math.log((pq * (1 - uq)) / (uq * (1 - pq)), 10)
+                    if q < 0:
+                        nQuery.append(0)
+                    elif q > 1:
+                        nQuery.append(1)
+                    else:
+                        nQuery.append(q)
+            finalResult = {}
+            for i in range(len(imagesNames)):
+                product = np.dot(nQuery,reducerObject[i])
+                finalResult[imagesNames[i]] = product
+
+            sortList = sorted(finalResult.items(), key=lambda x: x[1], reverse=True)
+            finalResult = list(dict(sortList).keys())
+            plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
         else:
             print("Wrong input")
             exit()
+
         ch = input("Are you satisfied with the output? type Y for exit N for running again ")
 
+
+def plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration):
+    s = "<style>" \
+        ".images { width:160px;height:120px;float:left;margin:20px;}" \
+        "img{width:160px;height:120px;}" \
+        "h2{ text-align: center;margin-top: 45px;}" \
+        "</style>"
+    s = s + "<h2> " + str(len(relavantImages)) + " Relevant Images</h2>"
+    for i in relavantImages:
+        s = s + "<div class='images'>"
+        s = s + "<img src='"
+        s = s + join(config.FULL_IMAGESET_FOLDER, i)
+        s = s + "'><div style='text-align:center;'><span style='font-weight:bold;'>" + i + "</span></div></div>"
+    s = s + "</br></br><div style='clear:both;'></div>"
+    s = s + "<h2> " + str(len(irrelavantImages)) + " Irrelevant Images</h2>"
+    for i in irrelavantImages:
+        s = s + "<div class='images'>"
+        s = s + "<img src='"
+        s = s + join(config.FULL_IMAGESET_FOLDER, i)
+        s = s + "'><div style='text-align:center;'><span style='font-weight:bold;'>" + i + "</span></div></div>"
+    s = s + "</br></br><div style='clear:both;'></div>"
+    s = s + "<h2> Results :</h2>"
+    for img in finalResult:
+        news = "<div class='images'>"
+        news = news + "<img src='"
+        news = news + join(config.FULL_IMAGESET_FOLDER, img)
+        news = news + "'><div style='text-align:center;'><span style='font-weight:bold;'>" + img + "</span></div></div>"
+        s = s + news
+
+    s = s + "</div>"
+
+    f = open(join(config.DATABASE_FOLDER, "task_6_c_" + str(iteration) + ".html"), "w")
+    f.write(s)
+    f.close()
+
+    import webbrowser
+
+    url = join(config.DATABASE_FOLDER, "task_6_c_" + str(iteration) + ".html")
+    # MacOS
+    # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
+    # Windows
+    chrome_path = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+    # Linux
+    # chrome_path = '/usr/bin/google-chrome %s'
+    webbrowser.get(chrome_path).open(url)
 
 if __name__ == '__main__':
     startTask6()
