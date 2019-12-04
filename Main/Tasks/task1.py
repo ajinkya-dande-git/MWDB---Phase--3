@@ -6,6 +6,8 @@ import pandas as pd
 import Main.config as config
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+
+from Main.HOG_feature_descriptor import HOG
 from Main.helper import progress, plotInChromeForTask4
 from sklearn.metrics import accuracy_score
 
@@ -93,10 +95,15 @@ def load_features(folder_path):
         trainingFileJson = os.fsdecode(trainingFile).split('.')[0] + '.' + os.fsdecode(trainingFile).split('.')[
             1] + '.json'
         fileExists = os.path.exists(join(config.FEATURES_FOLDER, trainingFileJson))
+        data = {}
         if fileExists:
             with open(join(config.FEATURES_FOLDER, trainingFileJson), "r") as f:
                 data = json.load(f)
                 hog_feature_map.update(data)
+        else:
+            data = HOG().HOGForSingleImage(folder_path,trainingFile)
+            hog_feature_map.update(data)
+
         progress(counter, len(training_files))
         counter = counter + 1
     hog_values = list(hog_feature_map.values())

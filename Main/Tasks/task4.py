@@ -5,6 +5,7 @@ from os.path import join
 import numpy as np
 import pandas as pd
 import Main.config as config
+from Main.HOG_feature_descriptor import HOG
 from Main.PCA_Reducer import PCA_Reducer
 from Main.helper import progress, plotInChromeForTask4, find_distance_2_vectors
 from sklearn.metrics import accuracy_score
@@ -36,6 +37,9 @@ def startTask4():
             with open(join(config.FEATURES_FOLDER, trainingFileJson), "r") as f:
                 data = json.load(f)
                 hog_feature_map.update(data)
+        else:
+            data = HOG().HOGForSingleImage(training_folder, trainingFile)
+            hog_feature_map.update(data)
         progress(counter, len(training_files))
         counter = counter + 1
     reducer_object = list(hog_feature_map.values())
@@ -61,6 +65,8 @@ def startTask4():
             if file_exists:
                 with open(join(config.FEATURES_FOLDER, test_file_json), "r") as f:
                     data = json.load(f)
+            else:
+                data = HOG().HOGForSingleImage(test_folder, test_file)
             pca_output = pca.reduceDimension(list(data.values()))
             output_label = np.asarray(svm_object.predict(pca_output))[0]
             predicted_values.append(output_label)
@@ -98,6 +104,8 @@ def startTask4():
             if file_exists:
                 with open(join(config.FEATURES_FOLDER, test_file_json), "r") as f:
                     data = json.load(f)
+            else:
+                data = HOG().HOGForSingleImage(test_folder, test_file)
             pca_output = pca.reduceDimension(list(data.values()))
             pca_output = pca_output.values.tolist()[0]
             output_label = dtree_object.predict(root, pca_output)
@@ -126,6 +134,9 @@ def startTask4():
                 with open(join(config.FEATURES_FOLDER, trainingFileJson), "r") as f:
                     data = json.load(f)
                     ppr_hog_map.update(data)
+            else:
+                data = HOG().HOGForSingleImage(test_folder, test_file)
+                ppr_hog_map.update(data)
         # Appending the labelled data values with unlabelled images data
         reducer_object = list(hog_feature_map.values())
         pp_reducer_object = list(ppr_hog_map.values())

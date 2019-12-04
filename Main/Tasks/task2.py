@@ -7,6 +7,7 @@ from os.path import join
 import random
 
 from Main import config
+from Main.HOG_feature_descriptor import HOG
 from Main.helper import progress
 
 
@@ -48,6 +49,8 @@ def startTask2():
         if fileExists:
             with open(join(config.FEATURES_FOLDER, imageID + ".json"), "r") as f:
                 data = json.load(f)
+        else:
+            data = HOG().HOGForSingleImage(folderName,imageID)
         progress(counter, len(training_files))
         counter = counter + 1
         if imageID in dorsal:
@@ -71,6 +74,8 @@ def startTask2():
         if fileExists:
             with open(join(config.FEATURES_FOLDER, imageID + ".json"), "r") as f:
                 data = json.load(f)
+        else:
+            data = HOG().HOGForSingleImage(test_folder_name,imageID)
         hogDescriptorForUnlabelled.append(data.values())
         unlabeledImageMap[i] = [imageID]
         i = i + 1

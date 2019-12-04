@@ -5,6 +5,7 @@ from os.path import join
 import numpy as np
 import pandas as pd
 import Main.config as config
+from Main.HOG_feature_descriptor import HOG
 from Main.PCA_Reducer import PCA_Reducer
 from Main.helper import find_distance_2_vectors
 
@@ -25,8 +26,13 @@ def startTask3():
 
     for file in os.listdir(str(folderPath)):
         filename = os.fsdecode(file)
-        with open(join(config.FEATURES_FOLDER, filename+".json"), "r") as f:
-            eachData = json.load(f)
+        fileExists = os.path.exists(join(config.FEATURES_FOLDER, file + ".json"))
+        if fileExists:
+            with open(join(config.FEATURES_FOLDER, filename+".json"), "r") as f:
+                eachData = json.load(f)
+                data.update(eachData)
+        else:
+            data = HOG().HOGForSingleImage(folderPath, file)
             data.update(eachData)
             # mergingFeatureJson.append(data)
 
