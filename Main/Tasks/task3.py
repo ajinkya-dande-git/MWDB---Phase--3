@@ -124,7 +124,7 @@ def startTask3():
     s = s + join(folderPath, imageID_2)
     s = s + "'>"
     s = s + "<img src='"
-    s = s + join(folderPath, imageID_2)
+    s = s + join(folderPath, imageID_3)
     s = s + "'>"
     s = s + "</br></br>"
     s = s + "<h2>" + str(K) + " Dominant Images</h2>"
