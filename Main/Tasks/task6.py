@@ -1,5 +1,6 @@
 import json
 import math
+import operator
 from os.path import join
 
 import pandas as pd
@@ -7,6 +8,7 @@ import numpy as np
 
 from Main import config
 from Main.PCA_Reducer import PCA_Reducer
+from Main.Tasks.task4 import SVM, decisionTree
 from Main.helper import find_distance_2_vectors
 
 
@@ -16,17 +18,17 @@ def startTask6():
         "Please select the relevance feedback system \n1.SVM Based \n2.Decision Tree Based \n3.PPR Based \n4.Probabilistic based\n"))
 
     filename = input("Please enter the name of the file (output of 5b)")
-    with open(join(config.DATABASE_FOLDER, filename + ".json"), "r") as f:
+    with open(join(config.DATABASE_FOLDER, filename), "r") as f:
         data = json.load(f)
     imagesNames = list(data.keys())
-    reducerObject = list(data.values())
+    reducerObjectpp = list(data.values())
 
-    pca = PCA_Reducer(reducerObject, k=len(imagesNames))
+    pca_pp = PCA_Reducer(reducerObjectpp, k=len(imagesNames))
     latentFeatureDict = {}
-    data = pca.reduceDimension(pca.featureDescriptor)
+    data_pp = pca_pp.reduceDimension(pca_pp.featureDescriptor)
 
-    relavantImages = []
-    irrelavantImages = []
+    relavantImages = set()
+    irrelavantImages = set()
     iteration = 0
     # Below values are used for PPR, not to calculate everytime iteatively
     rowDict = {}
@@ -38,22 +40,133 @@ def startTask6():
         numberOfRelavant = int(input("Number of relevant images "))
         numberOfIrRelavant = int(input("Number of irrelevant images "))
         for i in range(numberOfRelavant):
-            relavantImages.append(input("Please " + str(i + 1) + " relevant image "))
+            relavantImages.add(input("Please " + str(i + 1) + " relevant image "))
         for i in range(numberOfIrRelavant):
-            irrelavantImages.append(input("Please " + str(i + 1) + " irrelevant image "))
-
-        relavantImages = set(relavantImages)
-        irrelavantImages = set(irrelavantImages)
+            irrelavantImages.add(input("Please " + str(i + 1) + " irrelevant image "))
 
         if feedbackSystem == 1:
             print("SVM Based Feedback system")
+            image_labels = []
+            reducerObject = []
+            for i in relavantImages:
+                reducerObject.append(data.get(i))
+                image_labels.append(-1)
+            for i in irrelavantImages:
+                reducerObject.append(data.get(i))
+                image_labels.append(1)
+            pca = PCA_Reducer(reducerObject, k=len(relavantImages) + len(irrelavantImages))
+            pca_result = pca.reduceDimension(pca.featureDescriptor)
+            svm_object = SVM()
+            print("Training SVM")
+            svm_object.svm_fit(pca_result, image_labels)
+            print("Done Training SVM")
+            tempList = list(set(imagesNames) - set(relavantImages))
+            unlabelledImages = list(set(tempList) - set(irrelavantImages))
+            predicted_values = []
+            relevantDistances = {}
+            irrelavantDistances = {}
+            for i in unlabelledImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                # print("pca output: ", pca_output)
+                output_label = np.asarray(svm_object.predict(pca_output))[0]
+                # print(type(pca_output))
+                pca_output = pca_output.values.tolist()
+                distance = svm_object.distance(pca_output[0])
+                # print(distance)
+                # print(type(distance))
+                predicted_values.append(output_label)
+                if output_label == -1:
+                    relevantDistances[distance] = i
+                elif output_label == 1:
+                    irrelavantDistances[distance] = i
+
+            for i in relavantImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                pca_output = pca_output.values.tolist()
+                distance = svm_object.distance(pca_output[0])
+                # print(distance)
+                relevantDistances[distance] = i
+
+            for i in irrelavantImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                pca_output = pca_output.values.tolist()
+                distance = svm_object.distance(pca_output[0])
+                # print(distance)
+                irrelavantDistances[distance] = i
+
+            relevantDistancesList = sorted(relevantDistances, reverse=True)
+            irrelavantDistancesList = sorted(irrelavantDistances)
+            output_images_list = []
+            for i in relevantDistancesList:
+                output_images_list.append(relevantDistances.get(i))
+            for i in irrelavantDistancesList:
+                output_images_list.append(irrelavantDistances.get(i))
+            # print(output_images_list)
+            plotTheResultInChrome(relavantImages, irrelavantImages, output_images_list, iteration, "SVM")
         elif feedbackSystem == 2:
             print("Decision Tree Based Feedback system")
+            reducerObject = []
+            for i in relavantImages:
+                reducerObject.append(data.get(i))
+            for i in irrelavantImages:
+                reducerObject.append(data.get(i))
+            pca = PCA_Reducer(reducerObject, k=len(relavantImages) + len(irrelavantImages))
+            pca_result = pca.reduceDimension(pca.featureDescriptor)
+            pca_result = pca_result.values.tolist()
+            class_labels = [-1, 1]
+            for i in range(0, len(relavantImages)):
+                pca_result[i].append(-1)
+            count = len(relavantImages)
+            for i in range(count, count + len(irrelavantImages)):
+                pca_result[i].append(1)
+
+            dtree_object = decisionTree()
+            root = dtree_object.construct_dt(pca_result, class_labels, 2, 2)
+            tempList = list(set(imagesNames) - set(relavantImages))
+            unlabelledImages = list(set(tempList) - set(irrelavantImages))
+            relevantConfidence = {}
+            irrelevantConfidence = {}
+            for i in unlabelledImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                pca_output = pca_output.values.tolist()[0]
+                output_label = dtree_object.predict(root, pca_output)
+                confidence = dtree_object.confidence(root, pca_output, output_label)
+                if output_label == -1:
+                    if relevantConfidence.get(confidence) is None:
+                        relevantConfidence[i] = confidence
+                else:
+                    irrelevantConfidence[i] = confidence
+
+            for i in relavantImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                pca_output = pca_output.values.tolist()[0]
+                output_label = dtree_object.predict(root, pca_output)
+                confidence = dtree_object.confidence(root, pca_output, output_label)
+                relevantConfidence[i] = confidence
+
+            for i in irrelavantImages:
+                pca_output = pca.reduceDimension([data.get(i)])
+                pca_output = pca_output.values.tolist()[0]
+                output_label = dtree_object.predict(root, pca_output)
+                confidence = dtree_object.confidence(root, pca_output, output_label)
+                irrelevantConfidence[i] = confidence
+
+            relevantConfidenceList = sorted(relevantConfidence.items(), key=operator.itemgetter(1), reverse=True)
+            irrelavantConfidenceList = sorted(irrelevantConfidence.items(), key=operator.itemgetter(1))
+            output_images_list = []
+            # print(relevantConfidenceList)
+            # print(irrelavantConfidenceList)
+            for key, value in relevantConfidenceList:
+                output_images_list.append(key)
+            for key, value in irrelavantConfidenceList:
+                output_images_list.append(key)
+            # print(output_images_list)
+            plotTheResultInChrome(relavantImages, irrelavantImages, output_images_list, iteration, "Decision Tree")
         elif feedbackSystem == 3:
             print("PPR Based Feedback system")
             if not calculated:
                 for i in range(len(imagesNames)):
-                    latent = data.iloc[i][:]
+                    latent = data_pp.iloc[i][:]
                     latentFeatureDict[imagesNames[i]] = latent
                     rowDict[i] = imagesNames[i]
 
@@ -85,6 +198,10 @@ def startTask6():
             for img in relavantImages:
                 seed.loc[img] = 1 / length
 
+            seed2 = pd.Series(0, index=imagesNames)
+            length2 = len(irrelavantImages)
+            for img in irrelavantImages:
+                seed2.loc[img] = 1 / length2
             df = pd.DataFrame(adjacency_matrix, columns=imagesNames)
             df.rename(index=rowDict, inplace=True)
 
@@ -92,17 +209,22 @@ def startTask6():
 
             I = np.identity(df.shape[1])
             page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+            page_rank2 = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed2)
 
             steady_state = pd.Series(page_rank, index=df.index)
-            steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix_6_c_"+str(iteration)+".csv"))
+            steady_state2 = pd.Series(page_rank2, index=df.index)
+            steady_state.to_csv(join(config.DATABASE_FOLDER, "steady_state_matrix_6_c_" + str(iteration) + ".csv"))
+            finalResult = {}
+            for i in range(len(imagesNames)):
+                    finalResult[imagesNames[i]] = steady_state[imagesNames[i]] - steady_state2[imagesNames[i]]
 
-            steady_state = steady_state.sort_values(ascending=False)
-            finalResult = steady_state.to_dict()
-            finalResult = list(finalResult.keys())
-            plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
+            # finalResult = list(finalResult.keys())
+            sortList = sorted(finalResult.items(), key=lambda x: x[1], reverse=True)
+            finalResult = list(dict(sortList).keys())
+            plotTheResultInChrome(relavantImages, irrelavantImages, finalResult, iteration, "PPR")
 
         elif feedbackSystem == 4:
-            images_df = pd.read_json(join(config.DATABASE_FOLDER, filename + ".json"), "r")
+            images_df = pd.read_json(join(config.DATABASE_FOLDER, filename), "r")
             threshold = 0.02
             nQuery = []
             for q in range(images_df.shape[0]):
@@ -130,12 +252,12 @@ def startTask6():
                         nQuery.append(q)
             finalResult = {}
             for i in range(len(imagesNames)):
-                product = np.dot(nQuery,reducerObject[i])
+                product = np.dot(nQuery, reducerObjectpp[i])
                 finalResult[imagesNames[i]] = product
 
             sortList = sorted(finalResult.items(), key=lambda x: x[1], reverse=True)
             finalResult = list(dict(sortList).keys())
-            plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
+            plotTheResultInChrome(relavantImages, irrelavantImages, finalResult, iteration, "Probabilistic")
         else:
             print("Wrong input")
             exit()
@@ -143,7 +265,7 @@ def startTask6():
         ch = input("Are you satisfied with the output? type Y for exit N for running again ")
 
 
-def plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration):
+def plotTheResultInChrome(relavantImages, irrelavantImages, finalResult, iteration, typeOfAlgo):
     s = "<style>" \
         ".images { width:160px;height:120px;float:left;margin:20px;}" \
         "img{width:160px;height:120px;}" \
@@ -173,13 +295,13 @@ def plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
 
     s = s + "</div>"
 
-    f = open(join(config.DATABASE_FOLDER, "task_6_c_" + str(iteration) + ".html"), "w")
+    f = open(join(config.DATABASE_FOLDER, "task_6_c_" + typeOfAlgo + "_" + str(iteration) + ".html"), "w")
     f.write(s)
     f.close()
 
     import webbrowser
 
-    url = join(config.DATABASE_FOLDER, "task_6_c_" + str(iteration) + ".html")
+    url = join(config.DATABASE_FOLDER, "task_6_c_" + typeOfAlgo + "_" + str(iteration) + ".html")
     # MacOS
     # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
     # Windows
@@ -187,6 +309,7 @@ def plotTheResultInChrome(relavantImages,irrelavantImages,finalResult,iteration)
     # Linux
     # chrome_path = '/usr/bin/google-chrome %s'
     webbrowser.get(chrome_path).open(url)
+
 
 if __name__ == '__main__':
     startTask6()

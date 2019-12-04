@@ -1,3 +1,4 @@
+# Took reference from https://towardsdatascience.com/support-vector-machine-python-example-d67d9b63f1c8
 import json
 import os
 from os.path import join
@@ -189,18 +190,26 @@ def startTask4():
             if image_lables[i] == -1:
                 seed.loc[imageNames[i]] = val
         # print(seed)
+        seed2 = pd.Series(0, index=imageNames)
+        count2 = image_lables.count(1)
+        val2 = 1 / count2
+        for i in range(len(os.listdir(training_folder))):
+            if image_lables[i] == 1:
+                seed2.loc[imageNames[i]] = val
 
         page_rank = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed)
+        page_rank2 = np.matmul(np.linalg.inv(I - .75 * df), 0.25 * seed2)
         steady_state = pd.Series(page_rank, index=df.index)
+        steady_state2 = pd.Series(page_rank2, index=df.index)
         test_labels_map = {}
         predicted_values = []
         for file in os.listdir(join(test_folder)):
-            if steady_state[file] >= 0.001619952:
-                test_labels_map[file] = "palmer"
-                predicted_values.append(1)
-            else:
+            if steady_state[file] >= steady_state2[file]:
                 test_labels_map[file] = "dorsal"
                 predicted_values.append(-1)
+            else:
+                test_labels_map[file] = "palmer"
+                predicted_values.append(1)
 
         actual_values = get_labels(test_folder, metadata)
         accuracy = accuracy_score(actual_values, predicted_values)
@@ -271,6 +280,13 @@ class SVM:
         equation = np.dot(x, self.weights) + self.intercept
         return np.sign(equation)
 
+    def distance(self, x):
+        equation = np.dot(x, self.weights) + self.intercept
+        print("x", x)
+        print("equation:", abs(equation))
+        print(np.dot(x, x))
+        return abs(equation) / np.dot(x, x)
+
 
 class decisionTree():
     def temp_partition(self, idx, val, data):
@@ -317,6 +333,12 @@ class decisionTree():
         output = [sample[-1] for sample in partition]
         return max(set(output), key=output.count)
 
+    def label_count(self, partition):
+        output = [sample[-1] for sample in partition]
+        relevant = output.count(-1)
+        irrelevant = output.count(1)
+        return [relevant, irrelevant]
+
     def perform_partition(self, rootNode, classLabels, max_height, min_samples, height):
         ltree, rtree = rootNode['partitions']
         del (rootNode['partitions'])
@@ -324,18 +346,24 @@ class decisionTree():
             val = self.leaf_node(ltree + rtree)
             rootNode['ltree'] = val
             rootNode['rtree'] = val
+            rootNode['lcount'] = self.label_count(ltree + rtree)
+            rootNode['rcount'] = self.label_count(ltree + rtree)
             return
         if height >= max_height:
             rootNode['ltree'] = self.leaf_node(ltree)
             rootNode['rtree'] = self.leaf_node(rtree)
+            rootNode['lcount'] = self.label_count(ltree)
+            rootNode['rcount'] = self.label_count(rtree)
             return
         if len(ltree) <= min_samples:
             rootNode['ltree'] = self.leaf_node(ltree)
+            rootNode['lcount'] = self.label_count(ltree)
         else:
             rootNode['ltree'] = self.find_best_partition(ltree, classLabels)
             self.perform_partition(rootNode['ltree'], classLabels, max_height, min_samples, height + 1)
         if len(rtree) <= min_samples:
             rootNode['rtree'] = self.leaf_node(rtree)
+            rootNode['rcount'] = self.label_count(rtree)
         else:
             rootNode['rtree'] = self.find_best_partition(rtree, classLabels)
             self.perform_partition(rootNode['rtree'], classLabels, max_height, min_samples, height + 1)
@@ -356,6 +384,24 @@ class decisionTree():
                 return self.predict(root['rtree'], sample)
             else:
                 return root['rtree']
+
+    def confidence(self, root, sample, label):
+        if sample[root['index']] < root['value']:
+            if isinstance(root['ltree'], dict):
+                return self.confidence(root['ltree'], sample, label)
+            else:
+                if label == -1:
+                    return root['lcount'][0] / (root['lcount'][0] + root['lcount'][1])
+                else:
+                    return root['lcount'][1] / (root['lcount'][0] + root['lcount'][1])
+        else:
+            if isinstance(root['rtree'], dict):
+                return self.confidence(root['rtree'], sample, label)
+            else:
+                if label == -1:
+                    return root['rcount'][0] / (root['rcount'][0] + root['rcount'][1])
+                else:
+                    return root['rcount'][1] / (root['rcount'][0] + root['rcount'][1])
 
 
 if __name__ == '__main__':
