@@ -1,4 +1,5 @@
 import json
+import sys
 
 import pandas as pd
 import numpy as np
@@ -12,8 +13,8 @@ from Main.helper import progress
 
 
 def startTask2():
-    d = []
-    p = []
+    dorsalImageID = []
+    palmerImageID = []
     hogDescriptorsForDorsal = []
     hogDescriptorsForPalmar = []
     hogDescriptorForUnlabelled = []
@@ -23,321 +24,252 @@ def startTask2():
     dorsal_image_index = {}
     palmar_image_index = {}
 
-    metadata = pd.read_csv(config.METADATA_FOLDER)
-    for index, row in metadata.iterrows():
-        if row['aspectOfHand'] == 'dorsal right' or row['aspectOfHand'] == 'dorsal left':
-            d.append(row['imageName'])
-        elif row['aspectOfHand'] == 'palmar right' or row['aspectOfHand'] == 'palmar left':
-            p.append(row['imageName'])
+    print("starting task2")
+    print("Enter the folder path containing the labeled images")
+    training_folder = input()  # 'H:\Asu\mwdb\project-phase-2\MWDB---Phase--3\Images\Labelled\Set1' input()
 
-    dorsal = set(d)
-    palmar = set(p)
-    # K = int(input("Enter the number of clusters: "))
-    # folderName = input("Enter the folder path containing the train images")
-    # test_folder_name = input("Enter the folder path containing the test images")
-    K = 10
-    folderName = config.IMAGE_FOLDER_SET_1
-    test_folder_name = config.IMAGE_FOLDER_SET_UNLABELLED_2
-    i = 0
-    j = 0
-    counter = 1
-    training_files = os.listdir(folderName)
-    print("Calculating features for labelled images")
-    for imageID in training_files:
-        data = {}
-        fileExists = os.path.exists(join(config.FEATURES_FOLDER, imageID + ".json"))
-        if fileExists:
-            with open(join(config.FEATURES_FOLDER, imageID + ".json"), "r") as f:
-                data = json.load(f)
+    print("Enter the C, number of clusters : ")
+    C = int(input())
+
+    print("Enter the folder path containing the test images")
+    test_folder = input()  # '/Users/vedavyas/Desktop/CSE515/phase3_data/Unlabelled/Set2'#input()
+
+    train_features, training_file_names = load_features(training_folder)
+    test_features, testing_file_names = load_features(test_folder)
+    print()
+    print("Computing K means...")
+    train_features = pd.Series(train_features, index=training_file_names)
+
+    metadata = pd.read_csv(join(config.METADATA_FOLDER))
+    dorsal_image_id = get_labels(training_folder, metadata, "dorsal")
+    palmer_image_id = get_labels(training_folder, metadata, "palmar")
+    hogDescriptorsForDorsal = []
+    hogDescriptorsForPalmar = []
+
+    # print(len(dorsal_image_id))
+    # print(dorsal_image_id)
+    # print(palmer_image_id)
+    # print(len(palmer_image_id))
+
+    for i in range(len(dorsal_image_id)):
+        hogDescriptorsForDorsal.append(train_features[dorsal_image_id[i]])
+
+    for i in range(len(palmer_image_id)):
+        hogDescriptorsForPalmar.append(train_features[palmer_image_id[i]])
+
+    # print(len(hogDescriptorsForDorsal))
+    # print(len(hogDescriptorsForPalmar))
+
+    centers_Dorsal = train_k_means_clustering(np.array(hogDescriptorsForDorsal), C, 1000)
+    centers_Palmar = train_k_means_clustering(np.array(hogDescriptorsForPalmar), C, 1000)
+
+    dorsal_cluster_label = {}
+    for i in range(len(hogDescriptorsForDorsal)):
+        nearest_center = None
+        nearest_center_dist = sys.maxsize
+        for j in range(C):
+            euclidean_dist = np.sqrt(np.sum(np.square(hogDescriptorsForDorsal[i] - centers_Dorsal[j])))
+            if (nearest_center_dist is None) or (nearest_center_dist > euclidean_dist):
+                nearest_center_dist = euclidean_dist
+                nearest_center = j
+        dorsal_cluster_label.update({dorsal_image_id[i]: nearest_center})
+
+    palmar_cluster_label = {}
+
+    for i in range(len(hogDescriptorsForPalmar)):
+        nearest_center = None
+        nearest_center_dist = sys.maxsize
+        for j in range(C):
+            euclidean_dist = np.sqrt(np.sum(np.square(hogDescriptorsForPalmar[i] - centers_Palmar[j])))
+            if (nearest_center_dist is None) or (nearest_center_dist > euclidean_dist):
+                nearest_center_dist = euclidean_dist
+                nearest_center = j
+        palmar_cluster_label.update({palmer_image_id[i]: nearest_center})
+    print()
+    print("predicting on test data")
+    palmar_results = []
+    dorsal_results = []
+    accuracy = 0
+    for i in range(len(test_features)):
+        min_dist_dorsal = sys.maxsize
+        for j in range(len(centers_Dorsal)):
+            distance = np.sqrt(np.sum(np.square(np.array(test_features[i]) - centers_Dorsal[j])))
+            if distance < min_dist_dorsal: min_dist_dorsal = distance
+
+        min_dist_palmar = sys.maxsize
+        for j in range(len(centers_Palmar)):
+            distance = np.sqrt(np.sum(np.square(np.array(test_features[i]) - centers_Palmar[j])))
+            if distance < min_dist_palmar: min_dist_palmar = distance
+
+        if min_dist_palmar < min_dist_dorsal:
+            palmar_results.append(testing_file_names[i])
+
+            if "palmar" in metadata.loc[metadata['imageName'] == testing_file_names[i]]['aspectOfHand'].values[0]:
+                accuracy = accuracy + 1
         else:
-            data = HOG().HOGForSingleImage(folderName,imageID)
-        progress(counter, len(training_files))
-        counter = counter + 1
-        if imageID in dorsal:
-            dorsal_image_index[i] = imageID
-            i += 1
-        else:
-            palmar_image_index[j] = imageID
-            j += 1
-        if imageID in dorsal:
-            hogDescriptorsForDorsal.append(list(data.values()))
-        elif imageID in palmar:
-            hogDescriptorsForPalmar.append(list(data.values()))
+            dorsal_results.append(testing_file_names[i])
 
-    i = 0
-    counter = 1
-    print("Calculating features for unlabelled images")
-    test_files = os.listdir(test_folder_name)
-    for imageID in test_files:
-        data = {}
-        fileExists = os.path.exists(join(config.FEATURES_FOLDER, imageID + ".json"))
-        if fileExists:
-            with open(join(config.FEATURES_FOLDER, imageID + ".json"), "r") as f:
-                data = json.load(f)
-        else:
-            data = HOG().HOGForSingleImage(test_folder_name,imageID)
-        hogDescriptorForUnlabelled.append(data.values())
-        unlabeledImageMap[i] = [imageID]
-        i = i + 1
-        progress(counter, len(test_files))
-        counter = counter + 1
+            if "dorsal" in metadata.loc[metadata['imageName'] == testing_file_names[i]]['aspectOfHand'].values[0]:
+                accuracy = accuracy + 1
 
-    m = np.array(hogDescriptorsForDorsal)
-    n = np.array(hogDescriptorsForPalmar)
+    print("Accuracy: ", accuracy / len(testing_file_names))
 
-    centers_Dorsal = train_k_means_clustering(hogDescriptorsForDorsal, K, 100)
-    centers_Palmar = train_k_means_clustering(hogDescriptorsForPalmar, K, 100)
+    # print(palmar_cluster_label)
+    palmar_cluster_label = dict(sorted(palmar_cluster_label.items(), key=lambda x: x[1]))
+    # print(palmar_cluster_label)
+    # print(dorsal_cluster_label)
+    dorsal_cluster_label = dict(sorted(dorsal_cluster_label.items(), key=lambda x: x[1]))
+    # print(dorsal_cluster_label)
+    # print(palmar_results)
+    # print(dorsal_results)
+    plotImagesForCluster(dorsal_cluster_label, palmar_cluster_label, "Task2_clusters", C)
+    plotInChromeForTask2(dorsal_results, palmar_results, "Task 2_final", accuracy)
 
-    print("----------------------------------------------------------------------------------------------------")
-    print("Dorsal Centers - ")
-    print(centers_Dorsal)
-    print("----------------------------------------------------------------------------------------------------")
-    print("Palmar Centers - ")
-    print(centers_Palmar)
 
-    ListClusters_Dorsal = []
-    ListClusters_Palmar = []
-
-    # Dorsal
-    cluster_centers_Dorsal = []
-    for cluster in centers_Dorsal:
-        cluster_centers_Dorsal.append(cluster[:len(hogDescriptorForUnlabelled[0])])
-    cluster_distance_Dorsal = {}
-    for hog in hogDescriptorForUnlabelled:
-        cluster_distance_Dorsal, nearest_Dorsal = predict_k_means_clustering(hog, cluster_centers_Dorsal)
-        ListClusters_Dorsal.append(cluster_distance_Dorsal)
-
-    # Palmar
-    cluster_centers_Palmar = []
-    for cluster in centers_Palmar:
-        cluster_centers_Palmar.append(cluster[:len(hogDescriptorForUnlabelled[0])])
-    cluster_distance_Palmar = {}
-    for hog in hogDescriptorForUnlabelled:
-        cluster_distance_Palmar, nearest_Palmar = predict_k_means_clustering(hog, cluster_centers_Palmar)
-        ListClusters_Palmar.append(cluster_distance_Palmar)
-
-    for i in range(0, len(hogDescriptorForUnlabelled)):
-        print('***** Dorsal ', ListClusters_Dorsal[i])
-        print('***** Palmar ', ListClusters_Palmar[i])
-        print('============================================')
-
-    # ## Find top K clusters in Dorsal and Palmer Centers ##
-
-    # In[20]:
-
-    topKPointsDorsal = []
-    topKPointsPalmar = []
-
-    for cluster in ListClusters_Dorsal:
-        for key in list(cluster.keys()):
-            topKPointsDorsal.append(['Dorsal', key, cluster[key]])
-
-    for cluster in ListClusters_Palmar:
-        for key in list(cluster.keys()):
-            topKPointsPalmar.append(['Palmar', key, cluster[key]])
-
-    ImageOrientation_List = {}  # this list will hold       Dorsal : [index of images which are dorsal]
-    #  Palmar : [index of images which are palmar]
-
-    ImageOrientation_List['Dorsal'] = []
-    ImageOrientation_List['Palmar'] = []
-
-    for i in range(0, len(hogDescriptorForUnlabelled)):
-        L = []
-        for key in list(ListClusters_Dorsal[i].keys()):
-            L.append(['Dorsal', ListClusters_Dorsal[i][key]])
-        for key in list(ListClusters_Palmar[i].keys()):
-            L.append(['Palmar', ListClusters_Palmar[i][key]])
-
-        L.sort(key=lambda x: x[1])
-        print(L)
-        print('===========================')
-
-        # Extract 3 nearest neighbours
-        k = 1
-        dorsal = 0
-        palmar = 0
-        for j in range(0, k):
-            if L[j][0] == 'Dorsal':
-                dorsal += 1
-            elif L[j][0] == 'Palmar':
-                palmar += 1
-        print(dorsal, palmar)
-        if dorsal > palmar:
-            ImageOrientation_List['Dorsal'].append(i)
-        else:
-            ImageOrientation_List['Palmar'].append(i)
-
-    data = pd.read_csv(config.METADATA_FOLDER)
-    test_data = data.iloc[:, [7, 8]].values
-
-    test_data_hash = {}
-    for i in test_data:
-        test_data_hash[i[1]] = i[0]
-    ImageOrientation_List
-
-    correct = 0
-
-    ImageOrientation_List['Dorsal']
-    for l in ImageOrientation_List['Dorsal']:
-        if test_data_hash[unlabeledImageMap[l][0]] == 'dorsal right' or test_data_hash[
-            unlabeledImageMap[l][0]] == 'dorsal left':
-            correct += 1
-
-    for l in ImageOrientation_List['Palmar']:
-        if test_data_hash[unlabeledImageMap[l][0]] == 'palmar right' or test_data_hash[
-            unlabeledImageMap[l][0]] == 'palmar left':
-            correct += 1
-
-    print('Accuracy: ', correct / len(test_data_hash))
-    visualizeMapDorsal = []
-    visualizeMapPalmar = []
-
-    for i in range(0, K):
-        dorsalDict = {}
-        palmarDict = {}
-        for j in range(len(hogDescriptorsForDorsal)):
-            if hogDescriptorsForDorsal[j][len(hogDescriptorsForDorsal[j]) - 1] == i:
-                dorsalDict[dorsal_image_index[j]] = 'Dorsal'
-
-        visualizeMapDorsal.append(dorsalDict)
-
-        for j in range(len(hogDescriptorsForPalmar)):
-            if hogDescriptorsForPalmar[j][len(hogDescriptorsForPalmar[j]) - 1] == i:
-                palmarDict[palmar_image_index[j]] = 'Palmar'
-
-        visualizeMapPalmar.append(palmarDict)
-
-    plotInChromeForTask2(visualizeMapDorsal, visualizeMapPalmar, 'Task 2', 0)
+def plotImagesForCluster(dorsal_cluster_label, palmar_cluster_label, task, C):
+    s = "<style>" \
+        ".images { width:160px;height:120px;float:left;margin:20px;}" \
+        "img{width:160px;height:120px;}" \
+        "h2{margin-top:20px;}"\
+        "h2,h5,h3{text-align:center;margin-top:80px;margin-bottom:80px;}</style>"
+    s = s + "<h2 style='text-align:center'> Classified Images using " + task + " </h2><div class='container'>"
+    for i in range(C):
+        s = s + "<h2 style='clear:both;'> Cluster :  " + str(i + 1) + "</h2>"
+        s = s + "<h3 style='clear:both;'> Dorsal </h3>"
+        for r in dorsal_cluster_label:
+            if i == dorsal_cluster_label[r]:
+                news = "<div class='images'>"
+                news = news + "<img src='"
+                news = news + join(config.FULL_IMAGESET_FOLDER, r)
+                news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>" + \
+                       r + "</span></div>"
+                news = news + "</div>"
+                s = s + news
+        s = s + "<h3 style='clear:both;'> Palmer </h3>"
+        for r in palmar_cluster_label:
+            if i == palmar_cluster_label[r]:
+                news = "<div class='images'>"
+                news = news + "<img src='"
+                news = news + join(config.FULL_IMAGESET_FOLDER, r)
+                news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>" + \
+                       r + "</span></div>"
+                news = news + "</div>"
+                s = s + news
+        s = s + "</div>"
+        f = open(join(config.DATABASE_FOLDER, task + ".html"), "w")
+        f.write(s)
+        f.close()
 
 
 def plotInChromeForTask2(dorsal_map, palmer_map, task, test_accuracy):
     s = "<style>"         ".images { width:160px;height:120px;float:left;margin:20px;}"         "img{width:160px;height:120px;}"        "h2,h5{text-align:center;margin-top:60px;}"        "</style>"
-    s = s + "<h2 style='text-align:center;margin-top:60px;'> Classified Images using "+task+" </h2><div class='container'>"
+    s = s + "<h2 style='text-align:center;margin-top:60px;'> Classified Images using " + task + " with accuracy = " + str(
+        test_accuracy) + " </h2><div class='container'>"
+    s = s + "<h2 style='clear:both;'> Dorsal </h2>"
     for row in range(len(dorsal_map)):
-        s = s + "<h2 style='clear:both;'> Cluster :  "+str(row+1)+"</h2>"
-        s = s + "<h5 style='clear:both;'> Dorsal </h5>"
-        for key in dorsal_map[row]:
-            news = "<div class='images'>"
-            news = news + "<img src='"
-            news = news + join("/Users/ajinkyadande/Documents/ASU/CSE 515 - Multimedia and Web Databases/Project/Phase 1/Hands", key)
-            news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>"+dorsal_map[row][key]+"</span></div>"
-            news = news + "</div>"
-            s = s + news
-        s = s + "<h5 style='clear:both;'> Palmer </h5>"
-        for palkey in palmer_map[row]:
-            news = "<div class='images'>"
-            news = news + "<img src='"
-            news = news + join(config.FULL_IMAGESET_FOLDER, palkey)
-            news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>"+palmer_map[row][palkey]+"</span></div>"
-            news = news + "</div>"
-            s = s + news
-
+        news = "<div class='images'>"
+        news = news + "<img src='"
+        news = news + join(config.FULL_IMAGESET_FOLDER, dorsal_map[row])
+        news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>" + \
+               dorsal_map[row] + "</span></div>"
+        news = news + "</div>"
+        s = s + news
+    s = s + "<h2 style='clear:both;'> Palmer </h2>"
+    for row in range(len(palmer_map)):
+        news = "<div class='images'>"
+        news = news + "<img src='"
+        news = news + join(config.FULL_IMAGESET_FOLDER, palmer_map[row])
+        news = news + "'><div style='text-align:center;'> Class: <span style='font-weight:bold;'>" + \
+               palmer_map[row] + "</span></div>"
+        news = news + "</div>"
+        s = s + news
 
     s = s + "</div>"
-    f = open(task+".html", "w")
+    f = open(join(config.DATABASE_FOLDER, task + ".html"), "w")
     f.write(s)
     f.close()
 
-def random_centers(data, dim, k):
+
+def random_centers(data, no_of_data_points, C):
     centers = []
-    for i in range(k):
-        rand = random.randint(0, dim)
+    for i in range(C):
+        rand = random.randint(0, no_of_data_points - 1)
         centers.append(data[rand])
-    return centers
+    return np.array(centers)
 
 
-def point_clustering(data, centers, dims, first_cluster=False):
+def point_clustering(data, centers):
+    nearest_centers = []
     for point in data:
-        # print(type(centers))
         nearest_center = 0
         nearest_center_dist = None
         for i in range(0, len(centers)):
-            euclidean_dist = 0
-            for d in range(0, dims):
-                dist = abs(point[d] - centers[i][d])
-                euclidean_dist += dist
-            euclidean_dist = np.sqrt(euclidean_dist)
-            if nearest_center_dist == None:
+            euclidean_dist = np.sqrt(np.sum(np.square(point - centers[i])))
+            if (nearest_center_dist is None) or (nearest_center_dist > euclidean_dist):
                 nearest_center_dist = euclidean_dist
                 nearest_center = i
-            elif nearest_center_dist > euclidean_dist:
-                nearest_center_dist = euclidean_dist
-                nearest_center = i
-        if first_cluster:
-            point.append(nearest_center)
-        else:
-            point[-1] = nearest_center
-    return data
+        nearest_centers.append(centers[nearest_center])
+    return np.array(nearest_centers)
 
 
-def mean_center(data, centers, dims):
-    # print('centers:', centers, 'dims:', dims)
+def mean_center(data, old_centers, nearest_center):
     new_centers = []
-    for i in range(len(centers)):
-        new_center = []
-        n_of_points = 0
-        total_of_points = []
-        for point in data:
-            if point[-1] == i:
-                n_of_points += 1
-                for dim in range(0, dims):
-                    if dim < len(total_of_points):
-                        total_of_points[dim] += point[dim]
-                    else:
-                        total_of_points.append(point[dim])
-        if len(total_of_points) != 0:
-            for dim in range(0, dims):
-                # print(total_of_points, dim)
-                new_center.append(total_of_points[dim] / n_of_points)
-            new_centers.append(new_center)
-        else:
-            new_centers.append(centers[i])
-
-    return new_centers
+    for i in range(len(old_centers)):
+        no_of_points = 0
+        center = np.zeros(len(old_centers[0]))
+        for j in range(len(data)):
+            if np.array_equal(nearest_center[j], old_centers[i]):
+                no_of_points += 1
+                center = center + data[j]
+        new_centers.append(center / no_of_points)
+    return np.array(new_centers)
 
 
-def train_k_means_clustering(data, k, epochs=20):
+def train_k_means_clustering(data, k, epochs=100):
     datapoints = len(data)
-    features = len(data[0])
-
     centers = random_centers(data, datapoints, k)
-    clustered_data = point_clustering(data, centers, features, first_cluster=True)
-
     for i in range(epochs):
-        print("Iteration - ", i)
-        centers = mean_center(clustered_data, centers, features)
-        clustered_data = point_clustering(data, centers, features, first_cluster=False)
-
+        # print("Iteration - ", i)
+        nearest_centers = point_clustering(data, centers)
+        centers = mean_center(data, centers, nearest_centers)
     return centers
 
 
-def predict_k_means_clustering(point, centers):
-    cluster_distance = {}
-    dims = len(point)
-    center_dims = len(centers[0])
+def load_features(folder_path):
+    hog_feature_map = {}
+    counter = 1
+    training_files = os.listdir(folder_path)
+    print()
+    print("Extracting features for the training images!")
+    for trainingFile in training_files:
+        trainingFileJson = os.fsdecode(trainingFile).split('.')[0] + '.' + os.fsdecode(trainingFile).split('.')[
+            1] + '.json'
 
-    if dims != center_dims:
-        raise ValueError('Point given for prediction have', dims, 'dimensions but centers have', center_dims,
-                         'dimensions')
+        fileExists = os.path.exists(join(config.FEATURES_FOLDER, trainingFileJson))
+        data = {}
+        if fileExists:
+            with open(join(config.FEATURES_FOLDER, trainingFileJson), "r") as f:
+                data = json.load(f)
+                hog_feature_map.update(data)
+        else:
+            data = HOG().HOGForSingleImage(folder_path, trainingFile)
+            hog_feature_map.update({trainingFile: data})
 
-    nearest_center = None
-    nearest_dist = None
+        progress(counter, len(training_files))
+        counter = counter + 1
+    hog_values = list(hog_feature_map.values())
+    return hog_values, training_files
 
-    for i in range(len(centers)):
-        euclidean_dist = 0
-        for dim in range(1, dims):
-            dist = point[dim] - centers[i][dim]
-            euclidean_dist += dist ** 2
-        euclidean_dist = np.sqrt(euclidean_dist)
-        if nearest_dist == None:
-            nearest_dist = euclidean_dist
-            nearest_center = i
-        elif nearest_dist > euclidean_dist:
-            nearest_dist = euclidean_dist
-            nearest_center = i
-        cluster_distance[i] = euclidean_dist
-    return cluster_distance, nearest_center
+
+def get_labels(image_folder, metadata, column_value):
+    image_labels = []
+    for file in os.listdir(image_folder):
+        file_name = os.fsdecode(file)
+        label = metadata[(metadata['imageName'] == file_name) & (metadata['aspectOfHand'].str.contains(column_value))][
+            'imageName'].values
+        if len(label) == 1:
+            image_labels.append(label[0])
+    return image_labels
 
 
 if __name__ == '__main__':

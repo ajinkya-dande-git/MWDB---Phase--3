@@ -4,7 +4,7 @@ from os.path import join
 
 from skimage import io
 from skimage.feature import hog
-from skimage.transform import rescale
+from skimage.transform import rescale, resize
 
 import Main.config as config
 from Main.helper import progress
@@ -16,13 +16,19 @@ class HOG:
     bins = 9  # number of orientation bins
 
     @classmethod
-    def HOGForSingleImage(self, filename):
-        image = io.imread(filename)
-        image_rescaled = rescale(image, 0.1, anti_aliasing=False)
+    def HOGForSingleImage(self, filePath,fileName):
+        image = io.imread(join(filePath,fileName))
+        image_resized = resize(image, (1600, 1200),
+                               anti_aliasing=True)
+        image_rescaled = rescale(image_resized, 0.1, anti_aliasing=False)
         # image = rescale(file, scale=0.1, anti_aliasing=True)
         fd, hog_image = hog(image_rescaled, orientations=9, pixels_per_cell=(8, 8),
                             cells_per_block=(2, 2), visualize=True, multichannel=True, transform_sqrt=True)
-        return fd
+        feature = {}
+        feature[fileName] = fd.tolist()
+        with open(join(config.FEATURES_FOLDER, fileName + ".json"), 'w', encoding='utf-8') as f:
+            json.dump(feature, f, ensure_ascii=True)
+        return feature
 
     @classmethod
     def HOGFeatureDescriptor(self):
@@ -36,11 +42,9 @@ class HOG:
             if filename.endswith(".jpg"):
                 storeHogFD = {}
                 i = i + 1
-                hognp = self.HOGForSingleImage(join(str(config.FULL_IMAGESET_FOLDER), filename))
+                hognp = self.HOGForSingleImage(join(str(config.FULL_IMAGESET_FOLDER), filename),filename)
                 progress(i, number_files)
                 storeHogFD[filename] = (hognp.tolist())
-                with open(join(config.FEATURES_FOLDER, filename + ".json"), 'w', encoding='utf-8') as f:
-                    json.dump(storeHogFD, f, ensure_ascii=True)
         print()
 
     @classmethod

@@ -1,4 +1,9 @@
+from Main.Tasks.task1 import startTask1
+from Main.Tasks.task2 import startTask2
 from Main.Tasks.task3 import startTask3
+from Main.Tasks.task4 import startTask4
+from Main.Tasks.task5 import startTask5
+from Main.Tasks.task6 import startTask6
 
 if __name__ == '__main__':
     runAgain = True
@@ -13,17 +18,16 @@ if __name__ == '__main__':
         print("Any other number to exit")
         userInput = input()
         if int(userInput) == 1:
-            startTask3()
-            pass
+            startTask1()
         elif int(userInput) == 2:
-            pass
+            startTask2()
         elif int(userInput) == 3:
-            pass
+            startTask3()
         elif int(userInput) == 4:
-            pass
+            startTask4()
         elif int(userInput) == 5:
-            pass
+            startTask5()
         elif int(userInput) == 6:
-            pass
+            startTask6()
         else:
             exit()
