@@ -75,7 +75,11 @@ def startTask4():
             else:
                 test_labels_map[test_file] = "palmar"
         print(test_labels_map)
-        accuracy = accuracy_score(actual_values, predicted_values)
+        accuracy = 0
+        if actual_values is not None:
+            accuracy = accuracy_score(actual_values, predicted_values)
+        else:
+            print("Cannot find accuracy")
         plotInChromeForTask4(test_labels_map, "Task_4_SVM", accuracy)
         print("Test Accuracy: ", accuracy)
 
@@ -114,7 +118,11 @@ def startTask4():
                 test_labels_map[test_file] = "dorsal"
             else:
                 test_labels_map[test_file] = "palmar"
-        accuracy = accuracy_score(actual_values, predicted_values)
+        accuracy = 0
+        if actual_values is not None:
+            accuracy = accuracy_score(actual_values, predicted_values)
+        else:
+            print("Cannot find accuracy")
         plotInChromeForTask4(test_labels_map, "Task_4_DECISION", accuracy)
         print("Test Accuracy: ", accuracy)
 
@@ -223,7 +231,11 @@ def startTask4():
                 predicted_values.append(1)
 
         actual_values = get_labels(test_folder, metadata)
-        accuracy = accuracy_score(actual_values, predicted_values)
+        accuracy = 0
+        if actual_values is not None:
+            accuracy = accuracy_score(actual_values, predicted_values)
+        else:
+            print("Cannot find accuracy")
         plotInChromeForTask4(test_labels_map, "Task_4_PPR", accuracy)
         print("Test Accuracy: ", accuracy)
         steady_state = steady_state.sort_values(ascending=True)
@@ -236,11 +248,14 @@ def get_labels(image_folder, metadata):
     image_lables = []
     for file in os.listdir(image_folder):
         file_name = os.fsdecode(file)
-        label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
-        if "dorsal" in label:
-            image_lables.append(-1)
-        else:
-            image_lables.append(1)
+        try:
+            label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
+            if "dorsal" in label:
+                image_lables.append(-1)
+            elif "palmar" in label:
+                image_lables.append(1)
+        except:
+            return None
     return image_lables
 
 

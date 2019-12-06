@@ -72,13 +72,17 @@ def startTask1():
             predicted_labels.append('dorsal')
 
     print()
-    test_accuracy = accuracy_score(test_labels, predicted_labels)
-    print("Accuracy is: ", test_accuracy)
+    accuracy = 0
+    if test_labels is not None:
+        accuracy = accuracy_score(test_labels, predicted_labels)
+    else:
+        print("Cannot find accuracy")
+    print("Accuracy is: ", accuracy)
     test_labels_map = {}
     for i in range(len(testing_file_names)):
         test_labels_map[testing_file_names[i]] = predicted_labels[i]
 
-    plotInChromeForTask4(test_labels_map, "Task_1", test_accuracy)
+    plotInChromeForTask4(test_labels_map, "Task_1", accuracy)
     out_df = pd.concat([pd.DataFrame(testing_file_names), pd.DataFrame(test_labels), pd.DataFrame(predicted_labels)],
                        axis=1)
 
@@ -114,11 +118,14 @@ def get_labels(image_folder, metadata):
     image_labels = []
     for file in os.listdir(image_folder):
         file_name = os.fsdecode(file)
-        label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
-        if "dorsal" in label:
-            image_labels.append("dorsal")
-        else:
-            image_labels.append("palmar")
+        try:
+            label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
+            if "dorsal" in label:
+                image_labels.append(-1)
+            elif "palmar" in label:
+                image_labels.append(1)
+        except:
+            return None
     return image_labels
 
 
