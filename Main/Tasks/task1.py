@@ -66,7 +66,7 @@ def startTask1():
         dorsal_score.append(dorsal_error)
         palmar_score.append(palmar_error)
 
-        if (palmar_error < dorsal_error):
+        if palmar_error < dorsal_error:
             predicted_labels.append('palmar')
         else:
             predicted_labels.append('dorsal')
@@ -118,14 +118,11 @@ def get_labels(image_folder, metadata):
     image_labels = []
     for file in os.listdir(image_folder):
         file_name = os.fsdecode(file)
-        try:
-            label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
-            if "dorsal" in label:
-                image_labels.append(-1)
-            elif "palmar" in label:
-                image_labels.append(1)
-        except:
-            return None
+        label = metadata.loc[metadata['imageName'] == file_name]['aspectOfHand'].iloc[0]
+        if "dorsal" in label:
+            image_labels.append("dorsal")
+        elif "palmar" in label:
+            image_labels.append("palmar")
     return image_labels
 
 

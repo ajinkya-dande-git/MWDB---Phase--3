@@ -16,11 +16,11 @@ def startTask3():
     K = input("Please enter the K value for visualizing dominant images ")
     k = int(k)
     K = int(K)
-    folder = input("Please Select the folder to apply Page Rank \n 1. Labelled Set 1 \n 2. Labelled Set 2 \n")
-    if folder == "1":
-        folderPath = config.IMAGE_FOLDER_SET_1
-    else:
-        folderPath = config.IMAGE_FOLDER_SET_2
+    folderPath = input("Please Select the folder to apply Page Rank  ")
+    # if folder == "1":
+    #     folderPath = config.IMAGE_FOLDER_SET_1
+    # else:
+    #     folderPath = config.IMAGE_FOLDER_SET_2
 
     data = {}
 

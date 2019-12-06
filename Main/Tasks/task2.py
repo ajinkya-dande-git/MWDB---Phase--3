@@ -159,6 +159,16 @@ def plotImagesForCluster(dorsal_cluster_label, palmar_cluster_label, task, C):
         f = open(join(config.DATABASE_FOLDER, task + ".html"), "w")
         f.write(s)
         f.close()
+        import webbrowser
+
+        url = join(join(config.DATABASE_FOLDER, task + ".html"))
+        # MacOS
+        # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
+        # Windows
+        chrome_path = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+        # Linux
+        # chrome_path = '/usr/bin/google-chrome %s'
+        webbrowser.get(chrome_path).open(url)
 
 
 def plotInChromeForTask2(dorsal_map, palmer_map, task, test_accuracy):
@@ -188,6 +198,16 @@ def plotInChromeForTask2(dorsal_map, palmer_map, task, test_accuracy):
     f = open(join(config.DATABASE_FOLDER, task + ".html"), "w")
     f.write(s)
     f.close()
+    import webbrowser
+
+    url = join(join(config.DATABASE_FOLDER, task + ".html"))
+    # MacOS
+    # chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
+    # Windows
+    chrome_path = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+    # Linux
+    # chrome_path = '/usr/bin/google-chrome %s'
+    webbrowser.get(chrome_path).open(url)
 
 
 def random_centers(data, no_of_data_points, C):

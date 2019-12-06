@@ -227,7 +227,7 @@ def startTask4():
                 test_labels_map[file] = "dorsal"
                 predicted_values.append(-1)
             else:
-                test_labels_map[file] = "palmer"
+                test_labels_map[file] = "palmar"
                 predicted_values.append(1)
 
         actual_values = get_labels(test_folder, metadata)
