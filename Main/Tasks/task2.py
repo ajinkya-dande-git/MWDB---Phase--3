@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 from os.path import join
 from random import randrange
 from Main import config
-from Main.HOG_feature_descriptor import HOG
+from Main.HOG_feature_descriptor import HOG 
 from Main.helper import progress
 
 
